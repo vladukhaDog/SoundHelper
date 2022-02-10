@@ -17,43 +17,24 @@ struct ContentView: View {
 //    private let delegate = Delegate()
     @State private var engine = AVAudioEngine()
     @State private var distortion = AVAudioUnitDistortion()
-    @State private var reverb = AVAudioUnitReverb()
-    @State private var audioBuffer = AVAudioPCMBuffer()
-    @State private var outputFile = AVAudioFile()
+    @State private var pitch = AVAudioUnitEQ(numberOfBands: 1)
+//    @State private var reverb = AVAudioUnitReverb()
+    @State private var te = AVAudioUnitEffect()
+    
+    
     @State private var delay = AVAudioUnitDelay()
     @State private var isRealTime = true
     @State var showingOptions = false
+    @State var delayInt: Float = 1000.0
+    @State var type: Float = 0
+    @State var bandwith: Float = 0.05
     init(){
-        initializeAudioEngine()
-        startRecording()
+        initializeAudioEngine(first: true)
     }
     
     var body: some View {
-        Button("CUm"){
-            showingOptions = true
-        }
-        .confirmationDialog("cum", isPresented: $showingOptions){
-            Button("Blut"){
-                for input in AVAudioSession.sharedInstance().availableInputs!{
-                    if input.portType == AVAudioSession.Port.bluetoothA2DP || input.portType == AVAudioSession.Port.bluetoothHFP || input.portType == AVAudioSession.Port.bluetoothLE{
-                        
-                        do {
-                            try AVAudioSession.sharedInstance().overrideOutputAudioPort(AVAudioSession.PortOverride.none)
-                        } catch let error as NSError {
-                            print("audioSession error turning off speaker: \(error.localizedDescription)")
-                        }
-                        
-                        do {
-                            try AVAudioSession.sharedInstance().setPreferredInput(input)
-                        }catch _ {
-                            print("cannot set mic ")
-                        }
-                        break
-                    }
-                }
-            }
-            
-            Button("built"){
+        VStack{
+            Button("Gae"){
                 for input in AVAudioSession.sharedInstance().availableInputs!{
                     if input.portType == AVAudioSession.Port.builtInMic || input.portType == AVAudioSession.Port.builtInReceiver  {
                         do {
@@ -64,6 +45,7 @@ struct ContentView: View {
                         
                         do {
                             try AVAudioSession.sharedInstance().setPreferredInput(input)
+                            try engine.start()
                         }catch _ {
                             print("cannot set mic ")
                         }
@@ -71,7 +53,93 @@ struct ContentView: View {
                     }
                 }
             }
+            Text("freq \(delayInt)")
+            Slider(value: $delayInt, in: 1...1000, step: 1)
+            Text("type #\(type)")
+            Slider(value: $type, in: 0...10 , step: 1)
+            Text("bandwidth \(bandwith)")
+            Slider(value: $bandwith, in: 0.05...5.0 , step: 0.05)
         }
+        .onChange(of: delayInt, perform: {_ in
+            
+            pitch.bands[0].frequency = delayInt
+            pitch.bands[0].bandwidth = bandwith
+            pitch.bands[0].filterType = AVAudioUnitEQFilterType(rawValue: Int(type))!
+            pitch.bands[0].bypass = false
+        })
+        .onChange(of: type, perform: {_ in
+            
+            pitch.bands[0].frequency = delayInt
+            pitch.bands[0].bandwidth = bandwith
+            pitch.bands[0].filterType = AVAudioUnitEQFilterType(rawValue: Int(type))!
+            pitch.bands[0].bypass = false
+        })
+        .onChange(of: bandwith, perform: {_ in
+            
+            pitch.bands[0].frequency = delayInt
+            pitch.bands[0].bandwidth = bandwith
+            pitch.bands[0].filterType = AVAudioUnitEQFilterType(rawValue: Int(type))!
+            pitch.bands[0].bypass = false
+        })
+        
+        
+       
+        
+        
+        
+        
+//        }
+    
+//
+//        Button("CUm"){
+////            showingOptions = true
+////            reverb.loadFactoryPreset(.cathedral)
+////            reverb.wetDryMix = 100 //0-100 range
+//
+//    //
+//
+//        }
+//
+//        .confirmationDialog("cum", isPresented: $showingOptions){
+//            Button("Blut"){
+//                for input in AVAudioSession.sharedInstance().availableInputs!{
+//                    if input.portType == AVAudioSession.Port.bluetoothA2DP || input.portType == AVAudioSession.Port.bluetoothHFP || input.portType == AVAudioSession.Port.bluetoothLE{
+//
+//                        do {
+//                            try AVAudioSession.sharedInstance().overrideOutputAudioPort(AVAudioSession.PortOverride.none)
+//                        } catch let error as NSError {
+//                            print("audioSession error turning off speaker: \(error.localizedDescription)")
+//                        }
+//
+//                        do {
+//                            try AVAudioSession.sharedInstance().setPreferredInput(input)
+//                        }catch _ {
+//                            print("cannot set mic ")
+//                        }
+//                        break
+//                    }
+//                }
+//            }
+//
+//            Button("built"){
+//                for input in AVAudioSession.sharedInstance().availableInputs!{
+//                    if input.portType == AVAudioSession.Port.builtInMic || input.portType == AVAudioSession.Port.builtInReceiver  {
+//                        do {
+//                            try AVAudioSession.sharedInstance().overrideOutputAudioPort(AVAudioSession.PortOverride.none)
+//                        } catch let error as NSError {
+//                            print("audioSession error turning off speaker: \(error.localizedDescription)")
+//                        }
+//
+//                        do {
+//                            try AVAudioSession.sharedInstance().setPreferredInput(input)
+//                        }catch _ {
+//                            print("cannot set mic ")
+//                        }
+//                        break
+//                    }
+//                }
+//            }
+//        }
         //            var deviceAction = UIAlertAction()
                     //                    var headphonesExist = false
                     //
@@ -202,38 +270,15 @@ struct ContentView: View {
             
     }
     
-    func startRecording() {
-
-        let mixer = engine.mainMixerNode
-        let format = mixer.outputFormat(forBus: 0)
-
-//        mixer.installTap(onBus: 0, bufferSize: 1024, format: format, block:
-//            { (buffer: AVAudioPCMBuffer!, time: AVAudioTime!) -> Void in
-//
-//                print(NSString(string: "writing"))
-////                do{
-////                    try self.outputFile.write(from: buffer)
-////                }
-////                catch {
-////                    print(NSString(string: "Write failed"));
-////                }
-//        })
-    }
-
-    func stopRecording() {
-
-        engine.mainMixerNode.removeTap(onBus: 0)
-        engine.stop()
-    }
     
     
     
-    func initializeAudioEngine() {
+    
+    func initializeAudioEngine(first: Bool = false) {
         
         engine.stop()
         engine.reset()
         engine = AVAudioEngine()
-        isRealTime = true
         do {
             try AVAudioSession.sharedInstance().setCategory(.playAndRecord,mode: .voiceChat, options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay, .defaultToSpeaker])
 //
@@ -272,35 +317,24 @@ struct ContentView: View {
 //        catch {
 //
 //        }
-
+        if first{
         let input = engine.inputNode
-        
+        pitch.bands[0].filterType = .highPass
+        pitch.bands[0].frequency = 15000
+        pitch.bands[0].bandwidth = bandwith
+        pitch.bands[0].bypass = false
+//        engine.detach(pitch)
+        engine.attach(pitch)
         input.removeTap(onBus: 0)
         let format = input.inputFormat(forBus: 0)
-//
-//        //settings for reverb
-        reverb.loadFactoryPreset(.mediumChamber)
-        reverb.wetDryMix = 0 //0-100 range
-        engine.attach(reverb)
-//
-        delay.delayTime = 0.2 // 0-2 range
-        engine.attach(delay)
-//
-//        //settings for distortion
-//        distortion.loadFactoryPreset(.drumsBitBrush)
-//        distortion.wetDryMix = 20 //0-100 range
-//        engine.attach(distortion)
-//
-//
-//        engine.connect(input, to: reverb, format: format)
-//        engine.connect(reverb, to: distortion, format: format)
-//        engine.connect(distortion, to: delay, format: format)
-        engine.connect(input, to: reverb, format: format)
-        engine.connect(reverb, to: delay, format: format)
-        engine.connect(delay, to: engine.mainMixerNode, format: format)
-
+        
+        
+        engine.connect(input, to: pitch, format: format)
+        engine.connect(pitch, to: engine.mainMixerNode, format: format)
+            engine.prepare()
+        }
 //        assert(engine.inputNode != nil)
-
+        
 //        isReverbOn = false
 
         try! engine.start()
